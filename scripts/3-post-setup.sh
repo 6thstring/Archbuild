@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
-#github-action genshdoc
-#
-# @file Post-Setup
-# @brief Finalizing installation configurations and cleaning up after script.
 echo -ne "
 -------------------------------------------------------------------------
                     Automated Arch Linux Installer
-                        SCRIPTHOME: ArchBuild
+                        SCRIPTHOME: Archbuild
 -------------------------------------------------------------------------
 
 Final Setup and Configurations
 GRUB EFI Bootloader Install & Check
 "
-source ${HOME}/ArchBuild/configs/setup.conf
+source ${HOME}/Archbuild/config/setup.conf
 
 if [[ -d "/sys/firmware/efi" ]]; then
     grub-install --efi-directory=/boot ${DISK}
@@ -30,19 +26,20 @@ fi
 # set kernel parameter for adding splash screen
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*/& splash /' /etc/default/grub
 
-echo -e "Installing CyberRe Grub theme..."
+echo -e "Installing Arch-Silence Grub theme..."
 THEME_DIR="/boot/grub/themes"
-THEME_NAME=CyberRe
+THEME_NAME=arch-silence
 echo -e "Creating the theme directory..."
 mkdir -p "${THEME_DIR}/${THEME_NAME}"
 echo -e "Copying the theme..."
-cd ${HOME}/ArchBuild
+cd ${HOME}/Archbuild
 cp -a configs${THEME_DIR}/${THEME_NAME}/* ${THEME_DIR}/${THEME_NAME}
 echo -e "Backing up Grub config..."
 cp -an /etc/default/grub /etc/default/grub.bak
 echo -e "Setting the theme as the default..."
 grep "GRUB_THEME=" /etc/default/grub 2>&1 >/dev/null && sed -i '/GRUB_THEME=/d' /etc/default/grub
 echo "GRUB_THEME=\"${THEME_DIR}/${THEME_NAME}/theme.txt\"" >> /etc/default/grub
+
 echo -e "Updating grub..."
 grub-mkconfig -o /boot/grub/grub.cfg
 echo -e "All set!"
@@ -101,22 +98,28 @@ systemctl enable bluetooth
 echo "  Bluetooth enabled"
 systemctl enable avahi-daemon.service
 echo "  Avahi enabled"
+systemctl enable fstrim.timer
+echo "  Periodic Trim enabled"
+systemctl enable systemd-resolved.service
+echo "  Enable resolvconf"
 
 if [[ "${FS}" == "luks" || "${FS}" == "btrfs" ]]; then
-echo -ne "
--------------------------------------------------------------------------
-                    Creating Snapper Config
--------------------------------------------------------------------------
-"
+  echo -ne "
+  -------------------------------------------------------------------------
+                      Creating Snapper Config
+  -------------------------------------------------------------------------
+  "
 
-SNAPPER_CONF="$HOME/ArchBuild/configs/etc/snapper/configs/root"
-mkdir -p /etc/snapper/configs/
-cp -rfv ${SNAPPER_CONF} /etc/snapper/configs/
+  SNAPPER_CONF="$HOME/Archbuild/config/etc/snapper/configs/root"
+  mkdir -p /etc/snapper/config/
+  cp -rfv ${SNAPPER_CONF} /etc/snapper/config/
 
-SNAPPER_CONF_D="$HOME/ArchBuild/configs/etc/conf.d/snapper"
-mkdir -p /etc/conf.d/
-cp -rfv ${SNAPPER_CONF_D} /etc/conf.d/
+  SNAPPER_CONF_D="$HOME/Archbuild/config/etc/conf.d/snapper"
+  mkdir -p /etc/conf.d/
+  cp -rfv ${SNAPPER_CONF_D} /etc/conf.d/
 
+  systemctl enable snapper-cleanup.timer
+  systemctl enable grub-btrfs.path
 fi
 
 echo -ne "
@@ -124,18 +127,22 @@ echo -ne "
                Enabling (and Theming) Plymouth Boot Splash
 -------------------------------------------------------------------------
 "
-PLYMOUTH_THEMES_DIR="$HOME/ArchBuild/configs/usr/share/plymouth/themes"
+PLYMOUTH_THEMES_DIR="$HOME/Archbuild/config/usr/share/plymouth/themes"
 PLYMOUTH_THEME="arch-glow" # can grab from config later if we allow selection
 mkdir -p /usr/share/plymouth/themes
 echo 'Installing Plymouth theme...'
 cp -rf ${PLYMOUTH_THEMES_DIR}/${PLYMOUTH_THEME} /usr/share/plymouth/themes
-if  [[ $FS == "luks"]]; then
+if  [[ $FS == "luks" ]]; then
   sed -i 's/HOOKS=(base udev*/& plymouth/' /etc/mkinitcpio.conf # add plymouth after base udev
   sed -i 's/HOOKS=(base udev \(.*block\) /&plymouth-/' /etc/mkinitcpio.conf # create plymouth-encrypt after block hook
 else
   sed -i 's/HOOKS=(base udev*/& plymouth/' /etc/mkinitcpio.conf # add plymouth after base udev
 fi
-plymouth-set-default-theme -R arch-glow # sets the theme and runs mkinitcpio
+if [[ $AUR_HELPER == none ]]; then # sets the theme and runs mkinitcpio
+  plymouth-set-default-theme -R arch-glow
+else
+  plymouth-set-default-theme -R arch-breeze
+fi
 echo 'Plymouth theme installed'
 
 echo -ne "
@@ -150,8 +157,8 @@ sed -i 's/^%wheel ALL=(ALL:ALL) NOPASSWD: ALL/# %wheel ALL=(ALL:ALL) NOPASSWD: A
 sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/' /etc/sudoers
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-rm -r $HOME/ArchBuild
-rm -r /home/$USERNAME/ArchBuild
+rm -r $HOME/Archbuild
+rm -r /home/$USERNAME/Archbuild
 
 # Replace in the same state
 cd $pwd
